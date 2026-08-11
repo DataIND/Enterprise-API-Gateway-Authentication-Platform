@@ -1,0 +1,231 @@
+version: "3.9"
+
+services:
+
+  # =========================================================
+  # PostgreSQL
+  # =========================================================
+
+  postgres:
+    image: postgres:16-alpine
+
+    container_name: enterprise-postgres
+
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    networks:
+      - backend-network
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+
+  # =========================================================
+  # Redis
+  # =========================================================
+
+  redis:
+    image: redis:7-alpine
+
+    container_name: enterprise-redis
+
+    restart: unless-stopped
+
+    volumes:
+      - redis_data:/data
+
+    networks:
+      - backend-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+  # =========================================================
+  # Traefik API Gateway
+  # =========================================================
+
+  traefik:
+    image: traefik:v3.5
+
+    container_name: enterprise-api-gateway
+
+    restart: unless-stopped
+
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+
+    ports:
+      - "80:80"
+      - "8080:8080"
+
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik/traefik.yml:/etc/traefik/traefik.yml:ro"
+      - "./traefik/dynamic:/etc/traefik/dynamic:ro"
+
+    networks:
+      - gateway-network
+      - backend-network
+
+
+  # =========================================================
+  # Authentication Service
+  # =========================================================
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+
+    container_name: enterprise-auth-service
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    expose:
+      - "7000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+    networks:
+      - gateway-network
+      - backend-network
+
+    labels:
+
+      - "traefik.enable=true"
+
+      - "traefik.http.routers.auth.rule=PathPrefix(`/api/v1/auth`)"
+
+      - "traefik.http.routers.auth.entrypoints=web"
+
+      - "traefik.http.routers.auth.middlewares=security-headers@file,auth-rate-limit@file"
+
+      - "traefik.http.services.auth.loadbalancer.server.port=7000"
+
+
+  # =========================================================
+  # Customer Service
+  # =========================================================
+
+  customer-service:
+    build:
+      context: .
+      dockerfile: customer-service/Dockerfile
+
+    container_name: enterprise-customer-service
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    expose:
+      - "8001"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - gateway-network
+      - backend-network
+
+    labels:
+
+      - "traefik.enable=true"
+
+      - "traefik.http.routers.customer.rule=PathPrefix(`/api/v1/customers`)"
+
+      - "traefik.http.routers.customer.entrypoints=web"
+
+      - "traefik.http.routers.customer.middlewares=security-headers@file,rate-limit@file"
+
+      - "traefik.http.services.customer.loadbalancer.server.port=8001"
+
+
+  # =========================================================
+  # Order Service
+  # =========================================================
+
+  order-service:
+    build:
+      context: .
+      dockerfile: order-service/Dockerfile
+
+    container_name: enterprise-order-service
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    expose:
+      - "8002"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - gateway-network
+      - backend-network
+
+    labels:
+
+      - "traefik.enable=true"
+
+      - "traefik.http.routers.orders.rule=PathPrefix(`/api/v1/orders`)"
+
+      - "traefik.http.routers.orders.entrypoints=web"
+
+      - "traefik.http.routers.orders.middlewares=security-headers@file,rate-limit@file"
+
+      - "traefik.http.services.orders.loadbalancer.server.port=8002"
+
+
+networks:
+
+  gateway-network:
+    name: enterprise-gateway-network
+
+  backend-network:
+    name: enterprise-backend-network
+
+
+volumes:
+
+  postgres_data:
+
+  redis_data:

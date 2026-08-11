@@ -1,0 +1,33 @@
+http:
+
+  middlewares:
+
+    security-headers:
+
+      headers:
+
+        customResponseHeaders:
+
+          X-Content-Type-Options: "nosniff"
+
+          X-Frame-Options: "DENY"
+
+          Referrer-Policy: "strict-origin-when-cross-origin"
+
+
+    rate-limit:
+
+      rateLimit:
+
+        average: 100
+
+        burst: 200
+
+
+    auth-rate-limit:
+
+      rateLimit:
+
+        average: 20
+
+        burst: 40
