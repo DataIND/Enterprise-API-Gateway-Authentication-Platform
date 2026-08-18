@@ -24,7 +24,6 @@ from .schemas import UserResponse
 from .security import hash_password
 from .security import verify_password
 
-
 router = APIRouter(
     prefix="/api/v1/auth",
     tags=["Authentication"],
@@ -39,9 +38,7 @@ redis_client = Redis.from_url(
 
 def token_key(token: str) -> str:
 
-    token_hash = hashlib.sha256(
-        token.encode()
-    ).hexdigest()
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
 
     return f"revoked_token:{token_hash}"
 
@@ -56,11 +53,7 @@ def register(
     db: Session = Depends(get_db),
 ):
 
-    existing_user = db.scalar(
-        select(User).where(
-            User.email == request.email
-        )
-    )
+    existing_user = db.scalar(select(User).where(User.email == request.email))
 
     if existing_user:
 
@@ -71,9 +64,7 @@ def register(
 
     user = User(
         email=request.email,
-        password_hash=hash_password(
-            request.password
-        ),
+        password_hash=hash_password(request.password),
         role="user",
     )
 
@@ -95,11 +86,7 @@ def login(
     db: Session = Depends(get_db),
 ):
 
-    user = db.scalar(
-        select(User).where(
-            User.email == request.email
-        )
-    )
+    user = db.scalar(select(User).where(User.email == request.email))
 
     if not user:
 
@@ -153,9 +140,7 @@ def refresh(
 
     try:
 
-        payload = decode_token(
-            request.refresh_token
-        )
+        payload = decode_token(request.refresh_token)
 
     except ValueError:
 
@@ -171,18 +156,14 @@ def refresh(
             detail="Invalid token type",
         )
 
-    if redis_client.exists(
-        token_key(request.refresh_token)
-    ):
+    if redis_client.exists(token_key(request.refresh_token)):
 
         raise HTTPException(
             status_code=401,
             detail="Refresh token revoked",
         )
 
-    user_id = int(
-        payload["sub"]
-    )
+    user_id = int(payload["sub"])
 
     access_token = create_access_token(
         user_id=user_id,
@@ -207,9 +188,7 @@ def logout(
 
     try:
 
-        payload = decode_token(
-            request.refresh_token
-        )
+        payload = decode_token(request.refresh_token)
 
     except ValueError:
 
@@ -235,6 +214,4 @@ def logout(
             "1",
         )
 
-    return {
-        "message": "Successfully logged out"
-    }
+    return {"message": "Successfully logged out"}

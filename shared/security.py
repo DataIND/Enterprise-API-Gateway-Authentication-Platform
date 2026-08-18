@@ -6,7 +6,6 @@ from typing import Any
 
 from jose import JWTError, jwt
 
-
 JWT_SECRET_KEY = os.getenv(
     "JWT_SECRET_KEY",
     "development-secret",
@@ -42,9 +41,7 @@ def create_access_token(
 
     now = datetime.now(timezone.utc)
 
-    expire = now + timedelta(
-        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
-    )
+    expire = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     payload = {
         "sub": str(user_id),
@@ -68,9 +65,7 @@ def create_refresh_token(
 
     now = datetime.now(timezone.utc)
 
-    expire = now + timedelta(
-        days=REFRESH_TOKEN_EXPIRE_DAYS
-    )
+    expire = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
     payload = {
         "sub": str(user_id),
@@ -98,6 +93,4 @@ def decode_token(token: str) -> dict[str, Any]:
 
     except JWTError as exc:
 
-        raise ValueError(
-            "Invalid or expired token"
-        ) from exc
+        raise ValueError("Invalid or expired token") from exc
